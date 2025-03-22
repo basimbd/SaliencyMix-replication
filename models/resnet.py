@@ -40,7 +40,11 @@ class BottleneckBlock(nn.Module):
         self.projection = nn.Sequential()
         if firstBlock:
             self.projection = nn.Sequential(OrderedDict([
-                ('convP', nn.Conv2d(in_channels if firstLayer else out_channels // 2, out_channels, kernel_size=1, stride=1)),
+                ('convP', nn.Conv2d(
+                    in_channels if firstLayer else out_channels // 2,
+                    out_channels,
+                    kernel_size=1,
+                    stride=1 if firstLayer else 2,)),
                 ('bnP', nn.BatchNorm2d(out_channels))
             ]))
 
