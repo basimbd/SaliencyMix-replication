@@ -16,6 +16,9 @@ class ConvBn(nn.Module):
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=False)
         self.bn = nn.BatchNorm2d(out_channels)
 
+    def forward(self, x):
+        return self.bn(self.conv(x))
+
 class BottleneckBlock(nn.Module):
     in_out_ratio = 4
     def __init__(
@@ -47,6 +50,13 @@ class BottleneckBlock(nn.Module):
                     stride=1 if firstLayer else 2,)),
                 ('bnP', nn.BatchNorm2d(out_channels))
             ]))
+
+    def forward(self, x):
+        out = F.relu(self.convBn1(x))
+        out = F.relu(self.convBn2(out))
+        out = self.convBn3(out)
+        out = out + self.projection(x)
+        return F.relu(out)
 
 
 class ResNet50(nn.Module):
@@ -89,3 +99,11 @@ class ResNet50(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.fc = nn.Linear(2048, num_classes)
         self.softmax = nn.Softmax(dim=1)
+
+    def forward(self, x):
+        out = self.maxpool0(self.relu0(self.bn0(self.conv0(x))))
+        for layer in [self.layer1, self.layer2, self.layer3, self.layer4]:
+            out = layer(out)
+        out = self.avgpool(out)
+        out = out.view(out.size(0), -1)
+        return self.softmax(self.fc(out))
