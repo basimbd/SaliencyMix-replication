@@ -98,7 +98,6 @@ class ResNet50(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.fc = nn.Linear(2048, num_classes)
-        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         out = self.maxpool0(self.relu0(self.bn0(self.conv0(x))))
@@ -106,4 +105,4 @@ class ResNet50(nn.Module):
             out = layer(out)
         out = self.avgpool(out)
         out = out.view(out.size(0), -1)
-        return self.softmax(self.fc(out))
+        return self.fc(out)
