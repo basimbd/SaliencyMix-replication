@@ -7,6 +7,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from models.resnet import ResNet50
 from evaluate import evaluate
 from const import cifar10_mean, cifar10_std
+from utils import get_current_timestamp_string
 
 train_transform = transforms.Compose([
     transforms.ToTensor(),
@@ -19,8 +20,8 @@ test_transform = transforms.Compose([
 train_dataset = datasets.CIFAR10(root='data/', train=True, transform=train_transform, download=True)
 test_dataset = datasets.CIFAR10(root='data/', train=False, transform=test_transform, download=True)
 
-train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=4, pin_memory=True)
-test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
+train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=4, pin_memory=True)
+test_loader = DataLoader(test_dataset, batch_size=256, shuffle=False, num_workers=4)
 
 model = ResNet50()
 model = torch.nn.DataParallel(model).cuda()
@@ -34,7 +35,7 @@ log_filename = 'logs/' + 'cifar-10_resnet-50' + '.txt'
 best_accuracy = 0
 best_acc_epoch = 0
 
-for epoch in range(1, 50+1):
+for epoch in range(1, 200+1):
     loss_accum = 0.
     correct = 0.
     total = 0.
@@ -76,11 +77,11 @@ for epoch in range(1, 50+1):
     if(test_acc>best_accuracy):
         best_accuracy = test_acc
         best_acc_epoch = epoch
-        torch.save(model.state_dict(), 'checkpoints/' + f'cifar-10_resnet-50_best' + '.pt')
+        torch.save(model.state_dict(), 'checkpoints/' + f'cifar-10_resnet-50_best_{get_current_timestamp_string()}' + '.pt')
 
 os.makedirs('checkpoints', exist_ok=True)
-torch.save(model.state_dict(), 'checkpoints/' + 'cifar-10_resnet-50_final' + '.pt')
+torch.save(model.state_dict(), 'checkpoints/' + f'cifar-10_resnet-50_final_{get_current_timestamp_string()}' + '.pt')
 
-f = open("best_accuracy.txt", "a+")
-f .write('best acc: %.3f at epoch: %d \r\n' % (best_accuracy, best_acc_epoch))
+f = open(f"best_accuracy_{get_current_timestamp_string()}.txt", "a+")
+f.write('best acc: %.3f at epoch: %d \r\n' % (best_accuracy, best_acc_epoch))
 f.close()
