@@ -106,3 +106,70 @@ class ResNet50(nn.Module):
         out = self.avgpool(out)
         out = out.view(out.size(0), -1)
         return self.fc(out)
+
+class ResNet101(nn.Module):
+    # 3 4 23 3 architecture
+    def __init__(self, num_classes=10):
+        super(ResNet101, self).__init__()
+        self.conv0 = nn.Conv2d(3, 64, 3, 1, padding=1, bias=False)
+        self.bn0 = nn.BatchNorm2d(64)
+        self.relu0 = nn.ReLU()
+        self.maxpool0 = nn.MaxPool2d(3, 1, padding=1)
+
+        in_channels = 64
+        self.layer1 = nn.Sequential(
+            BottleneckBlock(in_channels, True, True),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+        )
+        in_channels = 128
+        self.layer2 = nn.Sequential(
+            BottleneckBlock(in_channels, True),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),  
+        )
+        in_channels = 256
+        self.layer3 = nn.Sequential(
+            BottleneckBlock(in_channels, True),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels), 
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels), 
+        )
+        in_channels = 512
+        self.layer4 = nn.Sequential(
+            BottleneckBlock(in_channels, True),
+            BottleneckBlock(in_channels),
+            BottleneckBlock(in_channels),
+        )
+
+        self.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        self.fc = nn.Linear(2048, num_classes)
+
+    def forward(self, x):
+        out = self.maxpool0(self.relu0(self.bn0(self.conv0(x))))
+        for layer in [self.layer1, self.layer2, self.layer3, self.layer4]:
+            out = layer(out)
+        out = self.avgpool(out)
+        out = out.view(out.size(0), -1)
+        return self.fc(out)
