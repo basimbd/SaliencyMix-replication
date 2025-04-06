@@ -5,7 +5,7 @@ import torch
 from torchvision import transforms
 
 def get_salient_coordinates(image, lamda):
-    print(f"Image shape: {image.size()}")
+    # print(f"Image shape: {image.size()}")
 
     if image.ndim == 4:
         _, _, height, width = image.shape
