@@ -147,10 +147,7 @@ def main():
                 if not os.path.isdir(save_point):
                     os.mkdir(save_point)
                 torch.save(state, save_point+file_name+'.t7')
-                best_acc = acc
-
-
-   
+                best_acc = acc   
 
 # Model
     

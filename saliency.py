@@ -5,14 +5,22 @@ import torch
 from torchvision import transforms
 
 def get_salient_coordinates(image, lamda):
-    _, height, width = image.shape
+    print(f"Image shape: {image.size()}")
+
+    if image.ndim == 4:
+        _, _, height, width = image.shape
+        cv2_image = image.permute(0, 2, 3, 1).cpu().numpy()[0] * 255
+    else:
+        _, height, width = image.shape
+        cv2_image = image.permute(1, 2, 0).cpu().numpy() * 255
+
     cut_ratio = np.sqrt(1. - lamda)
     # print(f"Cut ratio: {cut_ratio}")
     cut_h, cut_w = int(cut_ratio * height), int(cut_ratio * width)
     # print(f"height, width = {height, width}")
     # print(f"cut (h,w) = {cut_h, cut_w}")
 
-    cv2_image = image.permute(1, 2, 0).cpu().numpy() * 255
+    
     cv2_image = cv2_image[..., ::-1]        # CV2 expects BGR instead of RGB
 
     saliency_model = cv2.saliency.StaticSaliencyFineGrained_create()
@@ -37,4 +45,3 @@ if __name__ == '__main__':
     # print(f"Image tensor shape = {image.shape}")
     # image = torch.distributions.Beta(1, 2).sample((3, 112, 112))
     get_salient_coordinates(image[0], 0.8)
-    
