@@ -23,9 +23,6 @@ from saliency import get_salient_coordinates
 # import cv2
 
 
-
-
-
 best_acc = 0
 best_epoch = 1
 
@@ -121,7 +118,7 @@ def main():
                 lamb = np.random.beta(1.0, 1.0)
                 random_index = torch.randperm(images.size()[0]).cuda()
                 labels_a, labels_b = labels, labels[random_index]
-                x1, y1, x2, y2 = get_salient_coordinates(images, lamb)
+                x1, y1, x2, y2 = get_salient_coordinates( images[random_index[0]], lamb)
                 images[:, :, x1:x2, y1:y2] = images[random_index, :, x1:x2, y1:y2]
                 lamb = 1 - (x2 - x1) * (y2 - y1) / (images.size()[-1] * images.size()[-3])
 

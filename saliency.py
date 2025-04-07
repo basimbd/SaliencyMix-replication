@@ -7,12 +7,12 @@ from torchvision import transforms
 def get_salient_coordinates(image, lamda):
     # print(f"Image shape: {image.size()}")
 
-    if image.ndim == 4:
-        _, _, height, width = image.shape
-        cv2_image = image.permute(0, 2, 3, 1).cpu().numpy()[0] * 255
-    else:
-        _, height, width = image.shape
-        cv2_image = image.permute(1, 2, 0).cpu().numpy() * 255
+    # if image.ndim == 4:
+    #     _, _, height, width = image.shape
+    #     cv2_image = image.permute(0, 2, 3, 1).cpu().numpy()[0] * 255
+    # else:
+    _, height, width = image.shape
+    cv2_image = image.permute(1, 2, 0).cpu().numpy() * 255
 
     cut_ratio = np.sqrt(1. - lamda)
     # print(f"Cut ratio: {cut_ratio}")
