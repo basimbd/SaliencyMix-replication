@@ -20,6 +20,42 @@ class ConvBn(nn.Module):
     def forward(self, x):
         return self.bn(self.conv(x))
 
+class BottleneckBlockINet(nn.Module):
+    in_out_ratio = 4
+    def __init__(
+        self, 
+        in_channels, 
+        out_channels,
+        stride=1,
+        downsample = None
+    ):
+        super(BottleneckBlockINet, self).__init__()
+        
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.conv3 = nn.Conv2d(out_channels, out_channels* BottleneckBlockINet.in_out_ratio, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(out_channels* BottleneckBlockINet.in_out_ratio)
+        self.relu = nn.ReLU(inplace=True)
+        
+        self.downsample = downsample
+        self.stride = stride
+        
+
+    def forward(self, x):
+        res = x
+        out = F.relu(self.convBn1(x))
+        out = F.relu(self.convBn2(out))
+        out = self.convBn3(out)
+        
+        if self.downsample is not None:
+            res = self.downsample(x)
+                
+        out = out + res
+        
+        return F.relu(out)
+
 class BottleneckBlock(nn.Module):
     in_out_ratio = 4
     def __init__(
@@ -181,7 +217,7 @@ class ResNet_imagenet(nn.Module):
         super(ResNet_imagenet, self).__init__()
 
         layers = [3, 4, 6, 3]
-        block = BottleneckBlock
+        block = BottleneckBlockINet
 
         self.in_channels = 64
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -204,15 +240,15 @@ class ResNet_imagenet(nn.Module):
 
     def _make_layer(self, block, out_channels, blocks, stride=1):
         downsample = None
-        if stride != 1 or self.in_channels != out_channels * 4:
+        if stride != 1 or self.in_channels != out_channels * block.in_out_ratio:
             downsample = nn.Sequential(
-                nn.Conv2d(self.in_channels, out_channels * 4, kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(self.in_channels, out_channels * block.in_out_ratio, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(out_channels * block.in_out_ratio),
             )
 
         layers = []
         layers.append(block(self.in_channels, out_channels, stride, downsample))
-        self.in_channels = out_channels * 4
+        self.in_channels = out_channels * block.in_out_ratio
         for _ in range(1, blocks):
             layers.append(block(self.in_channels, out_channels))
 
