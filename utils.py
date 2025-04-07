@@ -1,6 +1,8 @@
 from datetime import datetime
 import torch
 from torchvision import datasets, transforms
+from models.resnet import ResNet50
+from models.wideresnet import WideResNet
 from cutout import Cutout
 from const import cifar10_mean, cifar10_std, cifar100_mean, cifar100_std
 
@@ -16,6 +18,23 @@ def get_num_classes(dataset: str) -> int:
         return 200
     else:
         raise ValueError(f"Unknown dataset: {dataset}")
+
+def get_model(args):
+    if args.model == 'resnet18':
+        num_classes = get_num_classes(args.dataset)
+        model = ResNet50(num_classes).cuda()
+    elif args.model == 'resnet50':
+        num_classes = get_num_classes(args.dataset)
+        model = ResNet50(num_classes).cuda()
+    elif args.model == 'resnet101':
+        num_classes = get_num_classes(args.dataset)
+        model = ResNet50(num_classes).cuda()
+    elif args.model == 'wideresnet':
+        num_classes = get_num_classes(args.dataset)
+        model = WideResNet(depth=28, widen_factor=10, num_classes=num_classes, dropout_rate=0.3).cuda()
+    else:
+        raise ValueError(f"{args.model} model is not supported.")
+    return model
 
 def get_normalize_transforms(dataset: str):
     if dataset == 'cifar10':

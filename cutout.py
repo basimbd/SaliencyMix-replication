@@ -12,7 +12,7 @@ class Cutout(object):
         height = image.size(1)
         width = image.size(2)
 
-        mask = torch.ones(height, width, dtype=torch.float32).cuda()
+        mask = torch.ones(height, width, dtype=torch.float32)
 
         for n in range(self.n_holes):
             x = torch.randint(0, width, (1,)).item()
