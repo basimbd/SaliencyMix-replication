@@ -5,16 +5,15 @@ from torchvision import datasets, transforms
 from models.resnet import ResNet50
 from models.wideresnet import WideResNet
 from const import cifar10_mean, cifar10_std, cifar100_mean, cifar100_std
-from utils import get_dataset, get_num_classes
+from utils import get_dataset, get_model
 
 def evaluate(model=None, model_path=None, test_loader=None, args=None):
     assert model is not None or model_path is not None, "Either 'model' or 'model_path' should be provided"
     if test_loader is None:
         test_dataset = get_dataset(args, is_train=False)
-        test_loader = DataLoader(test_dataset, batch_size=128, shuffle=True, num_workers=4)
+        test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
     if model is None:
-        num_classes = get_num_classes(args.dataset)
-        model = ResNet50(num_classes).cuda()
+        model = get_model(args)
         checkpoint = torch.load(model_path, weights_only=True)
         model.load_state_dict(checkpoint['model_state_dict'])
 
@@ -35,6 +34,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Model evaluation script')
     parser.add_argument('--model_path', type=str, default=None, help='Path to the model file')
     parser.add_argument('--dataset', type=str, default='cifar10', choices=['cifar10', 'cifar100'], help='Dataset to use')
+    parser.add_argument('--batch_size', type=int, default=128, help='Batch size for training')
     parser.add_argument('--cutout', action='store_true', help='Use Cutout augmentation')
     parser.add_argument('--trad_augment', action='store_true', help='Use traditional augmentation')
 
