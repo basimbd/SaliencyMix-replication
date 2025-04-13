@@ -1,4 +1,4 @@
-from const import imagenet_mean, imagenet_std, imagenet_eigvalue, imagenet_eigvactor
+from const import imagenet_mean, imagenet_std, imagenet_eigvalue, imagenet_eigvactor, cifar100_mean, cifar100_std
 from torchvision import transforms
 from torchvision import datasets
 from utils import Lighting
@@ -10,6 +10,8 @@ import time
 import numpy as np
 import random
 
+# from torch.utils.tensorboard import SummaryWriter
+
 from evaluate import evaluate
 
 from saliency import get_salient_coordinates
@@ -17,15 +19,71 @@ from saliency import get_salient_coordinates
 
 best_error1, best_error5  = 100, 100
 
+current_activations = {}
+def get_activation_hook(layer_name):
+    global current_activations
+    def hook_fn(module, input, output):
+        current_activations[layer_name] = output.detach().clone()
+        # current_activations[layer_name] = module.weight.detach().clone()
+    return hook_fn
+
+# to use in backward_hook
+def get_grad_hook(layer_name):
+    def grad_hook(module, grad_inputs, grad_outputs):
+        global current_activations
+        # print(grad_inputs)
+        if module.weight.grad is not None:    # gradient of weight if using full_backward
+            current_activations[layer_name] = module.weight.grad.detach().clone()  # gradients w.r.t weight
+    return grad_hook
+
+def attach_hooks_to_layers(model):
+    handlers = []
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Conv2d):
+            handlers.append(module.register_forward_hook(get_activation_hook(f"{name}_Conv2d")))
+            # handlers.append(module.register_forward_hook(get_weight_hook(f"{name}_Conv2d")))
+            # handlers.append(module.register_full_backward_hook(get_grad_hook(f"{name}_Conv2d")))
+        # elif isinstance(module, torch.nn.MaxPool2d):
+        #     handlers.append(module.register_forward_hook(get_activation_hook(f"{name}_MaxPool2d")))
+        # elif isinstance(module, torch.nn.BatchNorm2d):
+        #     handlers.append(module.register_forward_hook(get_activation_hook(f"{name}_BatchNorm2d")))
+        # elif isinstance(module, torch.nn.AvgPool2d):
+        #     handlers.append(module.register_forward_hook(get_activation_hook(f"{name}_AvgPool2d")))
+        elif isinstance(module, torch.nn.Linear):
+            handlers.append(module.register_forward_hook(get_activation_hook(f"{name}_Linear")))
+            # handlers.append(module.register_full_backward_hook(get_grad_hook(f"{name}_Linear")))
+    return handlers
+
+# def add_to_histogram(tb_writer, model, activations, weights, weight_grads, iteration_num):
+def add_to_histogram(tb_writer, model, activations, iteration_num):
+    for name, module in model.named_modules():
+        # if isinstance(module, torch.nn.Conv2d):
+        #     tb_writer.add_histogram(f"activation_{name}_Conv2d", activations[f"{name}_Conv2d"], iteration_num)
+        #     # tb_writer.add_histogram(f"weight_{name}_Conv2d", weights[f"{name}_Conv2d"], iteration_num)
+        #     # tb_writer.add_histogram(f"weight_grads_{name}_Conv2d", weight_grads[f"{name}_Conv2d"], iteration_num)
+        # elif isinstance(module, torch.nn.MaxPool2d):
+        #     tb_writer.add_histogram(f"activation_{name}_MaxPool2d", activations[f"{name}_MaxPool2d"], iteration_num)
+        # elif isinstance(module, torch.nn.BatchNorm2d):
+        #     tb_writer.add_histogram(f"activation_{name}_BatchNorm2d", activations[f"{name}_BatchNorm2d"], iteration_num)
+        # elif isinstance(module, torch.nn.AvgPool2d):
+        #     tb_writer.add_histogram(f"activation_{name}_AvgPool2d", activations[f"{name}_AvgPool2d"], iteration_num)
+        # elif isinstance(module, torch.nn.Linear):
+        #     tb_writer.add_histogram(f"activation_{name}_Linear", activations[f"{name}_Linear"], iteration_num)
+        """weight histogram"""
+        if isinstance(module, torch.nn.Conv2d):
+            tb_writer.add_histogram(f"{name}_Conv2d", activations[f"{name}_Conv2d"], iteration_num)
+        elif isinstance(module, torch.nn.Linear):
+            tb_writer.add_histogram(f"{name}_Linear", activations[f"{name}_Linear"], iteration_num)
 
 def main():
     global best_error1, best_error5
     
     train_directory = 'imagenet/train'
-    val_directory = 'imagenet/test'
+    val_directory = 'imagenet/val'
 
 
     normalize = transforms.Normalize(mean=imagenet_mean, std=imagenet_std)
+    # normalize = transforms.Normalize(mean=cifar100_mean, std=cifar100_std)
 
     # jittering = transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4)
 
@@ -40,13 +98,18 @@ def main():
             lightening,
             normalize,
         ]))
+    # train_dataset = datasets.CIFAR10(root='data/', train=True, transform=transforms.Compose([
+    #         transforms.Resize(224),
+    #         transforms.ToTensor(),
+    #         normalize]), download=True)
     
     # train_dataset = torch.utils.data.Subset(train_dataset, range(10))
 
     # train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=128, shuffle=True, num_workers=4, pin_memory=True, sampler=None) 
+        train_dataset, batch_size=512, shuffle=True, num_workers=4, pin_memory=True, sampler=None) 
+    print("Train dataset size: ", len(train_loader.dataset))
     
     val_dataset = datasets.ImageFolder(
         val_directory,
@@ -57,13 +120,18 @@ def main():
             normalize,
         ]))
 
+    # val_dataset = datasets.CIFAR10(root='data/', train=False, transform=transforms.Compose([  
+    #         transforms.Resize(224),      
+    #         transforms.ToTensor(),
+    #         normalize]), download=True)
+
     # val_sampler = None
 
     val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=128, shuffle=False, num_workers=4, pin_memory=True)
     
 
-    net = ResNet_imagenet(numberofclass=200)   
+    net = ResNet_imagenet(numberofclass=200)
     
 
     net = net.cuda()
@@ -78,6 +146,9 @@ def main():
     optimizer = torch.optim.SGD(net.parameters(), lr=0.1, momentum=0.9, 
     weight_decay=1e-4, nesterov=True)
 
+    # hook_handlers = attach_hooks_to_layers(net)
+    # tb_writer = SummaryWriter("runs/8")
+    # global_it = 0
 
     for epoch in range(0, 300):
         
@@ -88,17 +159,14 @@ def main():
         
         loss_train = train(net, train_loader, criterion, optimizer, epoch)
 
-        acc = evaluate(model=net, test_loader= val_loader)
-        # print(f'Validation Error@1: {error1:.2f}%, Error@5: {error5:.2f}% , Loss: {val_loss:.4f}')
-        print(f'Validation Acc: {100-acc:.2f}%')
+        error1, error5, val_loss = validate(net, val_loader, criterion, epoch)
+        print(f'Epoch: {epoch}, Validation Loss: {val_loss:.4f}, Err@1: {error1:.2f}%, Err@5: {error5:.2f}%')
 
-        error1 = 100 - acc
-        best_error1 = min(best_error1, 100.0-acc)
-        # best_error1 = min(best_error1, error1)
+        best_error1 = min(best_error1, error1)
 
         if error1 <= best_error1:
-            # best_error5 = error5
-            torch.save(net.state_dict(), f'checkpoint/resnet_imgnet_epoch_{epoch}.pth')
+            best_error5 = error5
+            torch.save(net.state_dict(), f'checkpoints/imagenet/resnet50/base_model_best_20250413.pth')
             
         # print(f' Current Best Error@1: {best_error1:.2f}%, Error@5: {best_error5:.2f}%')
 
@@ -111,6 +179,8 @@ def main():
     f = open('imagenet_results.txt', 'a+')
     # f.write(f'Best Error@1: {best_error1:.2f}%, Error@5: {best_error5:.2f}%\n')
     f.close()         
+    # for handler in hook_handlers:
+    #     handler.remove()
         
 
 
@@ -135,7 +205,7 @@ def train(net, train_loader, criterion, optimizer, epoch):
 
         random_int = np.random.rand(1)
 
-        if random_int < 0.5:
+        if random_int < 0.0:
             lamb = np.random.beta(1.0, 1.0)
             rand_index = torch.randperm(images.size(0)).cuda()
             target_a = labels
@@ -170,11 +240,11 @@ def train(net, train_loader, criterion, optimizer, epoch):
         optimizer.step()
 
 
-        # if i % 10 == 0: 
-        # print(f'Train - Epoch [{epoch+1}], Step [{i+1}/{len(train_loader)}], Loss: {losses.item():.4f}, '
-                #   f'Acc@1: {top1.avg:.2f}%, Acc@5: {top5.avg:.2f}%, LR: {lr_curr:.6f}')
+        if i % 10 == 0: 
+            print(f'Epoch [{epoch}], Step [{i+1}/{len(train_loader)}], Train-Loss: {losses.avg:.4f}, '
+                  f'Train-Err@1: {top1.avg:.2f}%, Train-Err@5: {top5.avg:.2f}%, LR: {lr_curr:.6f}')
         
-        return losses.avg
+    return losses.avg
 
 def validate(net, val_loader, criterion, epoch):
     
@@ -202,7 +272,7 @@ def validate(net, val_loader, criterion, epoch):
         top5.update(error5.item(), images.size(0))
 
 
-    print(f'Epoch: {epoch}, Validation Loss: {losses.avg:.4f}, Acc@1: {top1.avg:.2f}%, Acc@5: {top5.avg:.2f}%')
+    # print(f'Epoch: {epoch}, Validation Loss: {losses.avg:.4f}, Err@1: {top1.avg:.2f}%, Err@5: {top5.avg:.2f}%')
 
     return top1.avg, top5.avg, losses.avg    
 
