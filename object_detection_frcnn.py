@@ -70,8 +70,15 @@ transform = T.Compose([
     T.ToTensor()
 ])
 
-trainval_dataset = VOCDetection(root="./data", year="2007", image_set="trainval", download=True)
-test_dataset = VOCDetection(root="./", year="2007", image_set="test", download=True)
+voc_2007_train = VOCDetection(root="./data", year="2007", image_set="trainval", download=True)
+voc_2012_train = VOCDetection(root="./data", year="2012", image_set="trainval", download=True)
+
+test_dataset = VOCDetection(root="./data", year="2007", image_set="test", download=True)
+
+trainval_dataset = torch.utils.data.ConcatDataset([
+    VOCDatasetWrapper(voc_2007_train, transforms=transform),
+    VOCDatasetWrapper(voc_2012_train, transforms=transform)
+])
 
 train_loader = DataLoader(VOCDatasetWrapper(trainval_dataset, transforms=transform), batch_size=1, shuffle=True, collate_fn=lambda x: tuple(zip(*x)))
 test_loader = DataLoader(VOCDatasetWrapper(test_dataset, transforms=transform), batch_size=1, shuffle=False, collate_fn=lambda x: tuple(zip(*x)))
