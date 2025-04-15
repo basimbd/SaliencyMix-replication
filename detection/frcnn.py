@@ -15,12 +15,31 @@ from detection.voc import get_voc_datasets
 from models.resnet import ResNet_imagenet
 
 
+def freeze(layer):
+    for param in layer.parameters():
+      param.requires_grad = False
+
+def freeze_layers(model):
+    freeze(model.conv1)
+    freeze(model.bn1)
+    freeze(model.layer1)
+
+    # freeze all BatchNorm2d layers
+    for module in model.modules():
+        if isinstance(module, nn.BatchNorm2d):
+            module.eval()
+            freeze(module)
+    model.layer2.train()
+    model.layer3.train()
+
+
 def get_backbone(checkpoint_path):
     model = ResNet_imagenet(numberofclass=1000)     # must be same as used in checkpoint
     model = nn.DataParallel(model)
     saved_checkpoint = torch.load(checkpoint_path, weights_only=True)
     model.load_state_dict(saved_checkpoint['state_dict'])
     model = model.module  # Unwrap DataParallel model
+    freeze_layers(model)
 
     # remove avgpool & fc layers
     modules = [module for module in model.children() if not isinstance(module, nn.AvgPool2d) and not isinstance(module, nn.Linear)]
@@ -69,7 +88,6 @@ def main(checkpoint_path: str):
     scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 
     best_map = 0.0
-    best_model_weights = None
 
     num_epochs = 14
     for epoch in range(num_epochs):
@@ -82,12 +100,11 @@ def main(checkpoint_path: str):
 
         if current_map > best_map:
             best_map = current_map
-            best_model_weights = copy.deepcopy(model.state_dict())
             print(f"New best mAP: {best_map:.4f}, saving model...")
+            date_suffix = get_current_timestamp_string()
+            torch.save(model.state_dict(), f'best_fasterrcnn_model_{date_suffix}.pt')
+            print(f"Best model saved as 'best_fasterrcnn_model_{date_suffix}.pt'.")
 
-    if best_model_weights:
-        torch.save(best_model_weights, 'best_fasterrcnn_model.pt')
-        print("Best model saved as 'best_fasterrcnn_model.pt'.")
 
 if __name__ == "__main__":
     main("/local/home/mbahmed/Projects/EECS6322/FasterRCNN/pytorch/FasterRCNN/models/checkpoints/og_paper_best_model.pth.tar")
