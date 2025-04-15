@@ -67,18 +67,19 @@ def get_transform(train):
         transforms.append(T.RandomHorizontalFlip(0.5))
     return T.Compose(transforms)
 
-def get_voc_datasets():
-    voc_2007_raw = VOCDetection('VOCdevkit', year='2007', image_set='trainval', download=True)
-    voc_2012_raw = VOCDetection('VOCdevkit', year='2012', image_set='trainval', download=True)
+def get_voc_datasets(test_only=False):
     voc_test_raw = VOCDetection('VOCdevkit', year='2007', image_set='test', download=True)
- 
-    transform_train = get_transform(train=True)
     transform_test = get_transform(train=False)
- 
-    dataset_2007 = VOCDatasetWrapper(voc_2007_raw, transform_train)
-    dataset_2012 = VOCDatasetWrapper(voc_2012_raw, transform_train)
     dataset_test = VOCDatasetWrapper(voc_test_raw, transform_test)
     
+    if test_only:
+        return dataset_test
+    voc_2007_raw = VOCDetection('VOCdevkit', year='2007', image_set='trainval', download=True)
+    voc_2012_raw = VOCDetection('VOCdevkit', year='2012', image_set='trainval', download=True)
+
+    transform_train = get_transform(train=True)
+    dataset_2007 = VOCDatasetWrapper(voc_2007_raw, transform_train)
+    dataset_2012 = VOCDatasetWrapper(voc_2012_raw, transform_train)
     dataset = ConcatDataset([dataset_2007, dataset_2012])
  
     return dataset, dataset_test
