@@ -55,7 +55,7 @@ class VOCDatasetWrapper(torch.utils.data.Dataset):
         converted = {
             "boxes": boxes,
             "labels": labels,
-            "image_id": torch.tensor([idx]),
+            "image_id": idx,
             "area": (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]),
             "iscrowd": torch.zeros((len(boxes),), dtype=torch.int64),
         }
