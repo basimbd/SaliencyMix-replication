@@ -13,6 +13,7 @@ import detection.utils as utils  # from https://github.com/pytorch/vision/blob/m
 import detection.transforms as T  # from https://github.com/pytorch/vision/blob/main/references/detection/transforms.py
 from detection.voc import get_voc_datasets
 from models.resnet import ResNet_imagenet
+from utils import get_current_timestamp_string
 
 
 def freeze(layer):
@@ -37,7 +38,9 @@ def get_backbone(checkpoint_path):
     model = ResNet_imagenet(numberofclass=1000)     # must be same as used in checkpoint
     model = nn.DataParallel(model)
     saved_checkpoint = torch.load(checkpoint_path, weights_only=True)
-    model.load_state_dict(saved_checkpoint['state_dict'])
+    if 'state_dict' in saved_checkpoint:
+        saved_checkpoint = saved_checkpoint['state_dict']
+    model.load_state_dict(saved_checkpoint)
     model = model.module  # Unwrap DataParallel model
     freeze_layers(model)
 
@@ -72,14 +75,14 @@ def get_faster_rcnn_model(checkpoint_path):
     return model
 
 
-def main(checkpoint_path: str):
+def main(checkpoint_path: str, num_epochs=14, batch_size=8):
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     assert os.path.exists(checkpoint_path), f"Checkpoint path '{checkpoint_path}' does not exist."
 
     dataset, dataset_test = get_voc_datasets()      # returns both 2007 & 2012
 
-    data_loader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=4, collate_fn=utils.collate_fn)
-    data_loader_test = DataLoader(dataset_test, batch_size=2, shuffle=False, num_workers=4, collate_fn=utils.collate_fn)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4, collate_fn=utils.collate_fn)
+    data_loader_test = DataLoader(dataset_test, batch_size=batch_size//2, shuffle=False, num_workers=4, collate_fn=utils.collate_fn)
 
     model = get_faster_rcnn_model(checkpoint_path).cuda()
 
@@ -89,9 +92,8 @@ def main(checkpoint_path: str):
 
     best_map = 0.0
 
-    num_epochs = 14
     for epoch in range(num_epochs):
-        train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq=50)
+        train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq=500)
 
         scheduler.step()
 
@@ -100,11 +102,8 @@ def main(checkpoint_path: str):
 
         if current_map > best_map:
             best_map = current_map
-            print(f"New best mAP: {best_map:.4f}, saving model...")
+            print(f"New best mAP: {100*best_map:.2f}, saving model...")
             date_suffix = get_current_timestamp_string()
             torch.save(model.state_dict(), f'best_fasterrcnn_model_{date_suffix}.pt')
             print(f"Best model saved as 'best_fasterrcnn_model_{date_suffix}.pt'.")
 
-
-if __name__ == "__main__":
-    main("/local/home/mbahmed/Projects/EECS6322/FasterRCNN/pytorch/FasterRCNN/models/checkpoints/og_paper_best_model.pth.tar")
