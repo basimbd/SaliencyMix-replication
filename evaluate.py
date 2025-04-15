@@ -30,7 +30,7 @@ def evaluate(model=None, model_path=None, test_loader=None, args=None):
             correct += (pred_idxs == labels.data).sum().item()
     return 100 * correct / total
 
-def evaluate_w_top_k(model=None, model_path=None, test_loader=None, k=5, args=None):
+def evaluate_w_top_k(model=None, model_path=None, test_loader=None, k=5, args=None, loss_fn=None):
     assert model is not None or model_path is not None, "Either 'model' or 'model_path' should be provided"
     if test_loader is None:
         assert args is not None, "If 'test_loader' is None, 'args (--dataset)' must be provided"
@@ -40,6 +40,9 @@ def evaluate_w_top_k(model=None, model_path=None, test_loader=None, k=5, args=No
         model = get_model(args)
         checkpoint = torch.load(model_path, weights_only=True)
         model.load_state_dict(checkpoint['model_state_dict'])
+    if loss_fn is None:
+        loss_fn = torch.nn.CrossEntropyLoss()
+    loss_accum = 0.
     correct = 0
     total = 0
     correct_k = 0
@@ -49,13 +52,15 @@ def evaluate_w_top_k(model=None, model_path=None, test_loader=None, k=5, args=No
             images = images.cuda()
             labels = labels.cuda()
             pred = model(images)
+            loss = loss_fn(pred, labels)
+            loss_accum += loss.item()
             _, pred_idxs = torch.max(pred.data, 1)
             total += labels.size(0)
             correct += (pred_idxs == labels.data).sum().item()
             _, pred_idxs = torch.topk(pred.data, k, 1)
             pred_idxs = pred_idxs.t()
             correct_k += pred_idxs.eq(labels.view(1, -1).expand_as(pred_idxs)).sum().item()
-    return 100 * correct / total, 100 * correct_k / total
+    return 100 * correct / total, 100 * correct_k / total, loss_accum / len(test_loader)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Model evaluation script')
