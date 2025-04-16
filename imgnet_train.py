@@ -125,6 +125,8 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=300, help='Number of epochs to train')
     parser.add_argument('--lr', type=float, default=0.1, help='Learning rate')
     parser.add_argument('--saliency_probab', type=float, default=0.0, help='Probability of applying SaliencyMix')
+    parser.add_argument('--cutout', action='store_true', help='Use Cutout augmentation')
+    parser.add_argument('--trad_augment', action='store_true', help='Use traditional augmentation')
     parser.add_argument('--checkpoint', type=str, default=None, help='Model checkpoint to load')
     args = parser.parse_args()
 
