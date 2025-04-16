@@ -74,5 +74,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.model_path is None:
         raise ValueError("--model_path must be provided")
-    acc_1, acc_k = evaluate_w_top_k(model_path=args.model_path, args=args)
+    acc_1, acc_k, _ = evaluate_w_top_k(model_path=args.model_path, args=args)
     print(f"Top-1 Accuracy: {acc_1:.2f}%\t Top-5 Accuracy: {acc_k:.2f}%")

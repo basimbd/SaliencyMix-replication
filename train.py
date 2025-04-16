@@ -16,7 +16,7 @@ from cutmix import get_cutmix_coordinates
 # # # # # # # # # # #
 parser = argparse.ArgumentParser(description='SaliencyMix Replication Training Script')
 parser.add_argument('--model', type=str, default='resnet50', choices=['resnet50', 'wideresnet'], help='Model to use')
-parser.add_argument('--dataset', type=str, default='cifar10', choices=['cifar10', 'cifar100'], help='Dataset to use')
+parser.add_argument('--dataset', type=str, default='cifar10', choices=['cifar10', 'cifar100', 'imagenet', 'tiny-imagenet'], help='Dataset to use')
 parser.add_argument('--batch_size', type=int, default=128, help='Batch size for training')
 parser.add_argument('--epochs', type=int, default=200, help='Number of epochs to train')
 parser.add_argument('--lr', type=float, default=0.1, help='Learning rate')
@@ -57,8 +57,12 @@ elif args.cutout:
 if args.trad_augment:
     mixing_type += "_trad_augment"
 
-os.makedirs('logs', exist_ok=True)
-log_filename = 'logs/' + f'{args.dataset}_{args.model}_{mixing_type}_{get_current_timestamp_string()}' + '.txt'
+log_filename = f'logs/{args.dataset}/{args.model}/{mixing_type}_{get_current_timestamp_string()}.txt'
+os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+
+best_model_path = f'checkpoints/{args.dataset}/{args.model}/{mixing_type}_best_{get_current_timestamp_string()}.pt'
+final_model_path = f'checkpoints/{args.dataset}/{args.model}/{mixing_type}_final_{get_current_timestamp_string()}.pt'
+os.makedirs(os.path.dirname(best_model_path), exist_ok=True)
 
 # # # # # # # # #
 # Model Loading #
@@ -68,9 +72,11 @@ if torch.cuda.device_count() > 1:
     model = torch.nn.DataParallel(model)
 optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, nesterov=True, weight_decay=5e-4)
 scheduler = MultiStepLR(optimizer, milestones=[60, 120, 160], gamma=0.2)    # milestone 60,12,160 according to paper
+start_epoch = 1
 if args.checkpoint:
     print(f"Loading checkpoint from {args.checkpoint}")
-    saved_checkpoint = torch.load(args.checkpoint)
+    saved_checkpoint = torch.load(args.checkpoint, weights_only=True)
+    start_epoch = saved_checkpoint['epoch'] + 1
     model.load_state_dict(saved_checkpoint['model_state_dict'])
     optimizer.load_state_dict(saved_checkpoint['optimizer_state_dict'])
     scheduler.load_state_dict(saved_checkpoint['scheduler_state_dict'])
@@ -81,7 +87,7 @@ loss_fn = torch.nn.CrossEntropyLoss().cuda()
 # Training Loop #
 # # # # # # # # #
 start = time.time()
-for epoch in range(1, args.epochs+1):
+for epoch in range(start_epoch, args.epochs+1):
     loss_accum = 0.
     correct = 0.
     total = 0.
@@ -148,7 +154,7 @@ for epoch in range(1, args.epochs+1):
             scheduler_state_dict=scheduler.state_dict(),
             best_acc=best_accuracy
         )
-        torch.save(model_save_dict, 'checkpoints/' + f'{args.dataset}_{args.model}_{mixing_type}_best_{get_current_timestamp_string()}' + '.pt')
+        torch.save(model_save_dict, best_model_path)
 
 print(f"Total time: {(time.time() - start)/60:.2f} mins")
 
@@ -160,7 +166,7 @@ model_save_dict = dict(
     scheduler_state_dict=scheduler.state_dict(),
     best_acc=best_accuracy
 )
-torch.save(model_save_dict, 'checkpoints/' + f'{args.dataset}_{args.model}_{mixing_type}_final_{get_current_timestamp_string()}' + '.pt')
+torch.save(model_save_dict, final_model_path)
 
 f = open(f"best_accuracy_{args.dataset}_{args.model}_{mixing_type}_{get_current_timestamp_string()}.txt", "a+")
 f.write('best acc: %.3f at epoch: %d \r\n' % (best_accuracy, best_acc_epoch))
