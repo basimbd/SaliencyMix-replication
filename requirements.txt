@@ -1,0 +1,9 @@
+python=3.12.2
+numpy=2.2.4
+opencv-python=4.11.0.86
+pandas=2.2.3
+pycocotools=2.0.8
+pytorch=2.5.1
+torchvision=0.20.1
+tqdm=4.67.1
+opencv-contrib-python==4.11.0.86

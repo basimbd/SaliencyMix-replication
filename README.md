@@ -3,6 +3,12 @@ This repository is a replication of the experiments from the SaliencyMix [paper]
 
 In this repo, we reproduce the experiments in this paper. The experiments can be divided in 4 parts. CIFAR classification, ImageNet classification, Object Detection, and Class Activation Map generation. Below we introduce each of them briefly.
 
+## Installation
+But before you begin, you may want to install the packages in the `requirements.txt` file with the following command-
+```
+pip install -r requirements.txt
+```
+
 ## CIFAR10 and CIFAR100
 For the CIFAR dataset, we create a basic training script `train.py` and ResNet50, ResNet101, WideResNet-28-10 models in `models/resnet.py` and `models/wideresnet.py` files. Saliency map generation for saliency mixing can be found in `saliency.py`. Similarly other baseline augmentations are implemented in `cutmix.py` and `cutout.py` files. To start training any of these models on CIFAR data, the following command can be useful as a template-
 ```
