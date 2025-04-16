@@ -36,12 +36,11 @@ def freeze_layers(model):
 
 def get_backbone(checkpoint_path):
     model = ResNet_imagenet(numberofclass=1000)     # must be same as used in checkpoint
-    model = nn.DataParallel(model)
     saved_checkpoint = torch.load(checkpoint_path, weights_only=True)
     if 'state_dict' in saved_checkpoint:
         saved_checkpoint = saved_checkpoint['state_dict']
+    saved_checkpoint = {k.replace('module.', ''): v for k, v in saved_checkpoint.items()}
     model.load_state_dict(saved_checkpoint)
-    model = model.module  # Unwrap DataParallel model
     freeze_layers(model)
 
     # remove avgpool & fc layers
